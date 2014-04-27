@@ -1,4 +1,6 @@
 package com.schedule;
+import static com.schedule.util.Preconditions.*;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -31,8 +33,19 @@ public class TaskInfo {
 			reader.readLine();	// first line is column name, skip
 			for (String line; (line = reader.readLine()) != null;) {
 				String[] segments = line.split(",");
-				int[] values = toIntArray(segments);
-				TaskInfo task = new TaskInfo(values[0], values[1], values[2], values[3]);
+				int[] values;
+				TaskInfo task;
+				try {
+					values = toIntArray(segments);
+				} catch (NumberFormatException e) {
+					throw new IOException("all data should be integer", e);
+				}
+				try {
+					task = new TaskInfo(values[0], values[1], values[2], values[3]);
+				} catch (IllegalArgumentException e) {
+					throw new IOException("invalid task data", e);
+				}
+				
 				tasks.add(task);
 			}
 		} finally {
@@ -56,6 +69,10 @@ public class TaskInfo {
 	public final int priority;
 			
 	public TaskInfo(int taskId, int startingTime, int duration, int priority) {
+		checkArgument(taskId >= 0, "taskId < 0");
+		checkArgument(startingTime >= 0, "startingTime < 0");
+		checkArgument(duration >= 0, "duration < 0");
+		checkArgument(priority > 0, "priority <= 0");
 		this.taskId = taskId;
 		this.startingTime = startingTime;
 		this.duration = duration;

@@ -13,7 +13,7 @@ public abstract class Schedule extends AbsProcess {
 	public Schedule(ArrivedTask task, IQueue queue, int initialTime, int duration) {
 		super(initialTime, duration, task);
 		checkArgument(duration <= task.getRemainingTime(), "schedule duration > task's remaining time");
-		this.task = checkNotNull(task);
+		this.task = task;
 		this.queue = checkNotNull(queue);
 	}
 

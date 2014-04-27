@@ -37,17 +37,21 @@ public class Processor {
 	 * Processor will pick schedule from the queue if it is idle.
 	 * @param queue - provides schedules
 	 * @param time - the current time
+	 * @return true if the processor has pick schedule from the queue, otherwise the processor is focusing on its current process.
 	 */
-	public void runScheduleInQueue(IQueue queue, int time) {
+	public boolean runScheduleInQueue(IQueue queue, int time) {
 		checkNotNull(queue);
+		boolean picked = false;
 		
-		if (processingSchedule == null || processingSchedule.isFinish()) {
+		if (!isBusy()) {
 			// pick a schedule from the queue to process
 			if (queue.isEmpty())
-				return;
+				return false;
 			processingSchedule = queue.dequeue();
+			picked = true;
 		}
 		processSchedule(processingSchedule, time);
+		return picked;
 	}
 
 	private void processSchedule(Schedule schedule, int time) {
@@ -59,9 +63,18 @@ public class Processor {
 		processRecordMap.put(time, schedule);
 	}
 	
+	public boolean isBusy() {
+		return processingSchedule != null && !processingSchedule.isFinish();
+	}
+	
 	/** Returns process record that map key(time) to value(schedule) */
 	public SortedMap<Integer, Schedule> getProcessRecordMap() {
 		return Collections.unmodifiableSortedMap(processRecordMap);
+	}
+	
+	@Override
+	public String toString() {
+		return "P" + id;
 	}
 	
 }

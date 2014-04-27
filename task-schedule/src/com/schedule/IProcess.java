@@ -5,7 +5,6 @@ import java.util.SortedMap;
 /** A runnable process that can process by {@link Processor}. */
 public interface IProcess {
 
-	/** Returns how long the schedule requires to process. */
 	public abstract int getDuration();
 
 	public abstract boolean isFinish();
@@ -22,7 +21,8 @@ public interface IProcess {
 
 	public abstract int getWaitingTime();
 
-	/** Returns process record that map key(time) to value(processor) */
 	public abstract SortedMap<Integer, Processor> getProcessRecordMap();
+
+	public abstract void idle(int time);
 	
 }

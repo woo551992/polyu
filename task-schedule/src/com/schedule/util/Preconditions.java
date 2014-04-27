@@ -28,4 +28,10 @@ public class Preconditions {
 		return ref;
 	}
 	
+	public static <T> T checkNotNull(T ref, String message) {
+		if (ref == null)
+			throw new NullPointerException(message);
+		return ref;
+	}
+	
 }

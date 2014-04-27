@@ -16,7 +16,6 @@ public abstract class AbsProcess implements IProcess {
 	private int actualStartingTime = -1;
 	private TreeMap<Integer, Processor> processRecordMap = new TreeMap<Integer, Processor>();
 	
-	//TODO: handle idle
 	private int waitingTime = 0;
 	
 
@@ -80,6 +79,11 @@ public abstract class AbsProcess implements IProcess {
 		// ensure running time not duplicate
 		checkState(!processRecordMap.containsKey(time), "duplicate running time");
 		
+		// process the parent process first, so that we can acknowledge correct state of parent process in onFinish
+		if (parentProcess != null) {
+			parentProcess.process(processor, time);
+		}
+		
 		// record
 		processRecordMap.put(time, processor);
 		// ensure running time are added sequentially
@@ -93,11 +97,36 @@ public abstract class AbsProcess implements IProcess {
 		if (isFinish()) {
 			onFinish(processor, time);
 		}
+	}
+	
+	/**
+	 * Call this when no processor handling this process.
+	 * May called multiple times at a moment, since a parent process may have multiple child process.
+	 * @param time - current time
+	 */
+	@Override
+	public void idle(int time) {
+		checkArgument(time >= 0);
 		
-		// process the parent process
 		if (parentProcess != null) {
-			parentProcess.process(processor, time);
+			parentProcess.idle(time);
 		}
+		
+		if (processRecordMap.containsKey(time)) {
+			checkState(processRecordMap.get(time) == null, "is processed at the same time");
+			// avoid multiple access in the same time
+			return;
+		}
+		
+		checkState(!isFinish(), "task is finished");
+		
+		// record
+		processRecordMap.put(time, null);
+		// ensure running time are added sequentially
+		checkState(processRecordMap.lastKey() == time, "the running time is not added sequentially");
+		
+		waitingTime++;
+		onIdle(time);
 	}
 
 	/**
@@ -106,8 +135,16 @@ public abstract class AbsProcess implements IProcess {
 	 * @param time - when do this schedule finish
 	 */
 	protected abstract void onFinish(Processor processor, int time);
+	
+	/**
+	 * Called when no processor handling this process.
+	 * You can use {@link #getWaitingTime()} to get back how long is the idle time
+	 * @param time - current time
+	 */
+	protected void onIdle(int time) {
+	}
 
-	/** Returns process record that map key(time) to value(processor) */
+	/** Returns process record that map key(time) to value(processor), or value(null) if idle. */
 	public SortedMap<Integer, Processor> getProcessRecordMap() {
 		return Collections.unmodifiableSortedMap(processRecordMap);
 	}
@@ -115,11 +152,6 @@ public abstract class AbsProcess implements IProcess {
 	@Override
 	public int getWaitingTime() {
 		return waitingTime;
-	}
-	
-	private void doSomethingToIncrementWaitingTime() {
-		checkState(!isFinish(), "task is finished");
-		waitingTime++;
 	}
 
 }
