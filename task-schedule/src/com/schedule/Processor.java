@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import com.schedule.scheduler.MFQScheduler.IQueue;
 
 public class Processor {
 	
@@ -63,6 +62,10 @@ public class Processor {
 		processRecordMap.put(time, schedule);
 	}
 	
+	public Schedule getProcessingSchedule() {
+		return processingSchedule;
+	}
+	
 	public boolean isBusy() {
 		return processingSchedule != null && !processingSchedule.isFinish();
 	}
@@ -74,7 +77,7 @@ public class Processor {
 	
 	@Override
 	public String toString() {
-		return "P" + id;
+		return "[P" + id + "]";
 	}
 	
 }

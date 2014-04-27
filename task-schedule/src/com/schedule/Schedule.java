@@ -3,7 +3,6 @@ package com.schedule;
 import static com.schedule.util.Preconditions.checkArgument;
 import static com.schedule.util.Preconditions.checkNotNull;
 
-import com.schedule.scheduler.MFQScheduler.IQueue;
 
 public abstract class Schedule extends AbsProcess {
 	

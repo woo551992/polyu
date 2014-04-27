@@ -5,20 +5,26 @@ import static com.schedule.util.Preconditions.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.SortedMap;
 
 import com.schedule.ArrivedTask;
+import com.schedule.IQueue;
 import com.schedule.Processor;
 import com.schedule.Schedule;
 import com.schedule.TaskInfo;
+import com.schedule.util.Log;
 
 public class MFQScheduler {
 	
+	private static final String TAG = "MFQScheduler";
+
 	private static class TestQueue extends FifoQueue {
 
 		@Override
@@ -27,10 +33,28 @@ public class MFQScheduler {
 	}
 	
 	public static void main(String[] args) throws IOException {
+		Log.setDebugEnabled(TAG, true);
+//		if (Boolean.FALSE)
 		{
 			MFQScheduler scheduler = new MFQScheduler();
+			scheduler.setProcessorNum(2);
 			scheduler.addFutureTasks(TaskInfo.defaultDataSet());
+//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(0, 0, 1, 1)));
+//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(1, 1, 5, 1)));
+//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(2, 10, 20, 1)));
+			int finishTime = scheduler.execute();
+			for (Processor processor : scheduler.getProcessors()) {
+				System.out.println(processor);
+				SortedMap<Integer,Schedule> processRecordMap = processor.getProcessRecordMap();
+				Set<Entry<Integer,Schedule>> entrySet = processRecordMap.entrySet();
+				for (Map.Entry<Integer, Schedule> entry : entrySet) {
+					System.out.println(entry.getKey() + "\t" + entry.getValue().getTask().getTaskInfo().taskId);
+				}
+			}
+			System.out.println(finishTime);
 		}
+		if (Boolean.TRUE)
+			return;
 		TaskInfo taskInfo = TaskInfo.defaultDataSet().iterator().next();
 		System.out.println(TaskInfo.HEADER_STRING);
 		System.out.println(taskInfo);
@@ -77,61 +101,22 @@ public class MFQScheduler {
 		System.out.println(arrivedTask.getProcessRecordMap());
 	}
 	
-	public static class Comparators {
-		public static class TaskInfos {
-			public static Comparator<TaskInfo> orderByStartingTime() {
-				return TASK_INFO_ORDER_BY_STARTING_TIME;
-			}
-			public static Comparator<TaskInfo> orderByPriority() {
-				return TASK_INFO_ORDER_BY_PRIORITY;
-			}
-			private static final Comparator<TaskInfo> TASK_INFO_ORDER_BY_STARTING_TIME = new Comparator<TaskInfo>() {
-				@Override
-				public int compare(TaskInfo o1, TaskInfo o2) {
-					if (o1.startingTime == o2.startingTime)
-						return 0;
-					return o1.startingTime < o2.startingTime ? -1 : 1;
-				}
-			};			
-			private static final Comparator<TaskInfo> TASK_INFO_ORDER_BY_PRIORITY = new Comparator<TaskInfo>() {
-				@Override
-				public int compare(TaskInfo o1, TaskInfo o2) {
-					if (o1.priority == o2.priority)
-						return 0;
-					return o1.priority < o2.priority ? -1 : 1;
-				}
-			};
-		}
-		public static class ArrivedTasks {
-			public static Comparator<ArrivedTask> orderByPriority() {
-				return TASK_ORDER_BY_PRIORITY;
-			}
-			private static final Comparator<ArrivedTask> TASK_ORDER_BY_PRIORITY = new Comparator<ArrivedTask>() {
-				@Override
-				public int compare(ArrivedTask o1, ArrivedTask o2) {
-					return Comparators.TaskInfos.orderByPriority().compare(o1.getTaskInfo(), o2.getTaskInfo());
-				}
-			};
-			
-		}
-	}
-	
-	
 	/** The priority range is from {@value #MIN_PRIORITY} to {@value #MAX_PRIORITY} */
 	private static final int MIN_PRIORITY = 1, MAX_PRIORITY = 9;
 	
 	/** When scheudle's idle time greater {@value #MAX_IDLE_TIME}, the schedule aging its task to a higher priority queue. */
-	private static final int MAX_IDLE_TIME = 16;
+	private static final int MAX_IDLE_TIME = 15;
 	
 	/** Collections of future that not started yet, ordered by {@link TaskInfo#startingTime} */
-	private TreeSet<TaskInfo> futureTasks = new TreeSet<TaskInfo>(Comparators.TaskInfos.orderByStartingTime());
+	private LinkedList<TaskInfo> sortedFutureTasks = new LinkedList<TaskInfo>();
 	private List<Processor> processors;
 
 	private ArrayList<ArrivedTask> inCompleteTasks = new ArrayList<ArrivedTask>();
 	private ArrayList<ArrivedTask> completedTasks = new ArrayList<ArrivedTask>();
+	private ArrayList<Schedule> inCompleteSchedules = new ArrayList<Schedule>();
 	
 	/** The major scheduling queues. */
-	private ArrayList<QueueEntry> queueEntries = createQueues();
+	private final ArrayList<QueueEntry> queueEntries = createQueues();
 	/** Buffer of task schedules. see {@link CommonReadyQueue} */
 	private CommonReadyQueue commonReadyQueue;
 
@@ -174,57 +159,109 @@ public class MFQScheduler {
 			int priority = taskInfo.priority;
 			checkArgument(priority >= MIN_PRIORITY && priority <= MAX_PRIORITY, "priority exceed the range");
 		}
-		futureTasks.addAll(allTasks);
+		sortedFutureTasks.addAll(allTasks);
+		Collections.sort(sortedFutureTasks, Comparators.TaskInfos.orderByStartingTime());
+		checkIdDuplicate(sortedFutureTasks);
+	}
+	
+	private static void checkIdDuplicate(Collection<TaskInfo> taskInfos) {
+		HashSet<Integer> hashSet = new HashSet<Integer>();
+		for (TaskInfo taskInfo : taskInfos) {
+			int taskId = taskInfo.taskId;
+			checkState(!hashSet.contains(taskId), "duplicate task id " + taskId);
+			hashSet.add(taskId);
+		}
 	}
 	
 	public void setProcessorNum(int num) {
 		checkArgument(num > 0);
 		processors = Processor.createProcessors(num);
+		// common ready queue max size = processor count
 		commonReadyQueue = new CommonReadyQueue(num);
 	}
 	
-	public void execute() {
+	public List<Processor> getProcessors() {
+		return Collections.unmodifiableList(processors);
+	}
+	
+	public int execute() {
 		int curTime = 0;
 		
-		while (!futureTasks.isEmpty() || !inCompleteTasks.isEmpty()) {
+		while (!sortedFutureTasks.isEmpty() || !inCompleteTasks.isEmpty()) {
+			Log.d(TAG, "time=" + curTime);
 			HashSet<ArrivedTask> arrivedTasks = new HashSet<ArrivedTask>();
-			do {
-				if (futureTasks.first().startingTime != curTime) {
+			while (!sortedFutureTasks.isEmpty()) {
+				if (sortedFutureTasks.peek().startingTime != curTime) {
 					// no task arrive at the moment
 					break;
 				}
-				ArrivedTaskImpl newArriveTask = new ArrivedTaskImpl(futureTasks.pollFirst());
-				arrivedTasks.add(newArriveTask);
-			} while (!futureTasks.isEmpty());
+				arrivedTasks.add(new ArrivedTaskImpl(sortedFutureTasks.poll()));
+			}
 			
 			if (!arrivedTasks.isEmpty()) {
 				arriveTasks(arrivedTasks, curTime);
 				// now, all tasks is scheduled on queues
 			}
-			//TODO: Processor handles all process records, but we need to increment idle tasks' waiting time here
 			
+			// add schedule to common ready queue
+			for (Schedule nextProcessSchedule; 
+					!commonReadyQueue.isFull() && (nextProcessSchedule = nextSchedule()) != null; ) {
+				commonReadyQueue.enqueue(nextProcessSchedule);
+			}
+			
+			
+			HashSet<Schedule> idleSchedules = new HashSet<Schedule>(inCompleteSchedules);
+			
+			// let processors pick schedule from the common ready queue
+			for (Processor p : processors) {
+				p.runScheduleInQueue(commonReadyQueue, curTime);
+				idleSchedules.remove(p.getProcessingSchedule());
+			}
+			
+			// notify all schedules are idle, except the processors' current job
+			for (Schedule schedule : idleSchedules) {
+				checkState(!schedule.isFinish());
+				schedule.idle(curTime);
+			}
 			
 			curTime++;
 		}
+		return curTime;
 	}
 
 	/**
 	 * Called when there is some task arrive at the moment.
+	 * Decide which queue to arrive for a task
 	 * @param tasks - arrive tasks, never empty
 	 * @param time - current time
 	 */
 	protected void arriveTasks(Set<ArrivedTask> tasks, int time) {
 		// order the tasks by priority
-		TreeSet<ArrivedTask> orderedTasks = new TreeSet<ArrivedTask>(Comparators.ArrivedTasks.orderByPriority());
-		orderedTasks.addAll(tasks);
+		ArrayList<ArrivedTask> orderedTasks = new ArrayList<ArrivedTask>(tasks);
+		Collections.sort(orderedTasks, Comparators.ArrivedTasks.orderByPriority());
 		
 		// choose queue to arrive base on its priority
 		for (ArrivedTask arrivedTask : orderedTasks) {
 			IQueue queue = findQueueByPriority(arrivedTask.getTaskInfo().priority);
 			checkNotNull(queue, "no queue found for priorty " + arrivedTask.getTaskInfo().priority);
 			
+			Log.d(TAG, "arrive\t- task=" + arrivedTask.getTaskInfo().toString() + " queue=" + queueEntries.indexOf(findQueueEntry(queue)));
 			queue.enqueue(arrivedTask, time);
 		}
+	}
+	
+	/** Returns and pull the next schedule for processing, or null if there is no schedule on queues. */
+	protected Schedule nextSchedule() {
+		// get schedules to run from queues, higher priority -> lower priority
+		for (QueueEntry queueEntry : queueEntries) {
+			IQueue queue = queueEntry.queue;
+			if (!queue.isEmpty()) {
+				Schedule schedule = queue.dequeue();
+				Log.d(TAG, "gotoCRQ\t- task=" + schedule.getTask().getTaskInfo().taskId + " queue=" + queueEntries.indexOf(findQueueEntry(queue)) + " size=" + queue.size());
+				return schedule;
+			}
+		}
+		return null;
 	}
 	
 	private IQueue findQueueByPriority(int priority) {
@@ -240,7 +277,7 @@ public class MFQScheduler {
 	
 	/** Returns the lower priority queue, or null if {@code queue} is the lowest. */
 	private IQueue getLowerQueue(IQueue queue) {
-		int index = queueEntries.indexOf(queue);
+		int index = queueEntries.indexOf(findQueueEntry(queue));
 		checkArgument(index >= 0);
 		index++;
 		return queueEntries.size() > index ? queueEntries.get(index).queue : null;
@@ -248,10 +285,20 @@ public class MFQScheduler {
 	
 	/** Returns the higher priority queue, or null if {@code queue} is the highest. */
 	private IQueue getUpperQueue(IQueue queue) {
-		int index = queueEntries.indexOf(queue);
+		int index = queueEntries.indexOf(findQueueEntry(queue));
 		checkArgument(index >= 0);
 		index--;
 		return index >= 0 ? queueEntries.get(index).queue : null;
+	}
+	
+	private QueueEntry findQueueEntry(IQueue queue) {
+		for (int i = 0; i < queueEntries.size(); i++) {
+			QueueEntry queueEntry = queueEntries.get(i);
+			if (queueEntry.queue == queue) {
+				return queueEntry;
+			}
+		}
+		return null;
 	}
 
 	private class RoundRobinQueue extends FifoQueue {
@@ -307,47 +354,6 @@ public class MFQScheduler {
 		
 	}
 
-	/**
-	 * Abstract queue provide basic function, the schedules are natural time ordered.
-	 */
-	public static abstract class FifoQueue implements IQueue {
-		
-		private final LinkedList<Schedule> internalQueue = new LinkedList<Schedule>();
-		
-		protected void enqueue(Schedule schedule) {
-			internalQueue.add(schedule);
-		}
-		
-		@Override
-		public Schedule dequeue() {
-			return internalQueue.poll();
-		}
-		
-		@Override
-		public boolean remove(Schedule schedule) {
-			return internalQueue.remove(schedule);
-		}
-		
-		@Override
-		public boolean isEmpty() {
-			return internalQueue.isEmpty();
-		}
-		
-		protected int size() {
-			return internalQueue.size();
-		}
-		
-	}
-	
-	/** A queue create Schedule for each task, then the Schedule will be pick up if it is ready to run. */
-	public interface IQueue {
-		
-		public abstract void enqueue(ArrivedTask task, int time);
-		public abstract Schedule dequeue();
-		public abstract boolean remove(Schedule schedule);
-		public abstract boolean isEmpty();
-	}
-	
 	private class ArrivedTaskImpl extends ArrivedTask {
 
 		public ArrivedTaskImpl(TaskInfo taskInfo) {
@@ -357,6 +363,7 @@ public class MFQScheduler {
 
 		@Override
 		protected void onFinish(Processor processor, int time) {
+			Log.d(TAG, "finish\t- task=" + getTaskInfo().taskId);
 			inCompleteTasks.remove(this);
 			completedTasks.add(this);
 		}
@@ -368,10 +375,12 @@ public class MFQScheduler {
 		public ScheduleImpl(ArrivedTask task, IQueue queue, int initialTime,
 				int duration) {
 			super(task, queue, initialTime, duration);
+			inCompleteSchedules.add(this);
 		}
 
 		@Override
 		protected void onFinish(Processor processor, int time) {
+			inCompleteSchedules.remove(this);
 			if (getTask().isFinish()) {
 				// nothing to do when task is end
 				return;
@@ -381,13 +390,16 @@ public class MFQScheduler {
 			checkNotNull(destQueue, "no lower priorty queue for downgrade");
 			
 			// transfer to a lower priority queue
-			checkState(curQueue.remove(this));
+			checkState(!curQueue.contains(this));
+			Log.d(TAG, "down\t- task=" + getTask().getTaskInfo().taskId + " from=" + queueEntries.indexOf(findQueueEntry(curQueue)) + " to=" + queueEntries.indexOf(findQueueEntry(destQueue)));
 			destQueue.enqueue(getTask(), time);
 		}
 		
 		@Override
 		protected void onIdle(int time) {
-			if (getWaitingTime() <= MAX_IDLE_TIME) {
+			if (getWaitingTime() <= MAX_IDLE_TIME || 
+					commonReadyQueue.contains(this)	// no need to aging if this is on common ready queue
+					) {
 				return;
 			}
 			
@@ -400,7 +412,9 @@ public class MFQScheduler {
 			
 			// transfer to a higher priority queue
 			checkState(curQueue.remove(this));
+			Log.d(TAG, "up\t- task=" + getTask().getTaskInfo().taskId + " from=" + queueEntries.indexOf(findQueueEntry(curQueue)) + " to=" + queueEntries.indexOf(findQueueEntry(destQueue)));
 			destQueue.enqueue(getTask(), time);
+			inCompleteSchedules.remove(this);	// this schedule is trashed since the destQueue reschedule the task
 		}
 		
 	}
