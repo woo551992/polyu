@@ -79,6 +79,10 @@ public class TaskInfo {
 		this.priority = priority;
 	}
 	
+	public String getName() {
+		return "Task" + taskId;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();

@@ -8,8 +8,12 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import com.schedule.util.Log;
+
 
 public class Processor {
+	
+	public static final String TAG = "Processor";
 	
 	public static List<Processor> createProcessors(int count) {
 		ArrayList<Processor> processors = new ArrayList<Processor>(count);
@@ -57,6 +61,7 @@ public class Processor {
 		checkArgument(time >= 0);
 		checkArgument(!processRecordMap.containsKey(time), "duplicate running time");
 
+		Log.d(TAG, this + " - task=" + schedule.getTask().getTaskInfo().taskId + " remain=" + schedule.getRemainingTime());
 		schedule.process(this, time);
 		// record
 		processRecordMap.put(time, schedule);

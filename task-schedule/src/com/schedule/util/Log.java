@@ -17,7 +17,16 @@ public class Log {
 	public static void d(String tag, Object message) {
 		if (!isDebugEnabled(tag))
 			return;
-		System.out.println("DEBUG\t" + tag + "\t" + message);
+		System.out.println("DEBUG\t" + fitToSize(tag, 20) + message);
+	}
+	
+	private static String fitToSize(String string, int size) {
+		StringBuilder sb = new StringBuilder(string);
+		for (int i = string.length(); i < size; i++) {
+			sb.append(" ");
+		}
+		sb.setLength(size);
+		return sb.toString();
 	}
 	
 }

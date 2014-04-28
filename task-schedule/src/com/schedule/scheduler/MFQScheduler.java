@@ -9,10 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 
 import com.schedule.ArrivedTask;
 import com.schedule.IQueue;
@@ -23,7 +20,7 @@ import com.schedule.util.Log;
 
 public class MFQScheduler {
 	
-	private static final String TAG = "MFQScheduler";
+	public static final String TAG = "MFQScheduler";
 
 	private static class TestQueue extends FifoQueue {
 
@@ -34,6 +31,7 @@ public class MFQScheduler {
 	
 	public static void main(String[] args) throws IOException {
 		Log.setDebugEnabled(TAG, true);
+		Log.setDebugEnabled(Processor.TAG, true);
 //		if (Boolean.FALSE)
 		{
 			MFQScheduler scheduler = new MFQScheduler();
@@ -42,16 +40,23 @@ public class MFQScheduler {
 //			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(0, 0, 1, 1)));
 //			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(1, 1, 5, 1)));
 //			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(2, 10, 20, 1)));
-			int finishTime = scheduler.execute();
-			for (Processor processor : scheduler.getProcessors()) {
-				System.out.println(processor);
-				SortedMap<Integer,Schedule> processRecordMap = processor.getProcessRecordMap();
-				Set<Entry<Integer,Schedule>> entrySet = processRecordMap.entrySet();
-				for (Map.Entry<Integer, Schedule> entry : entrySet) {
-					System.out.println(entry.getKey() + "\t" + entry.getValue().getTask().getTaskInfo().taskId);
-				}
-			}
-			System.out.println(finishTime);
+			Statistics stats = scheduler.execute();
+//			for (Processor processor : scheduler.getProcessors()) {
+//				System.out.println(processor);
+//				SortedMap<Integer,Schedule> processRecordMap = processor.getProcessRecordMap();
+//				Set<Entry<Integer,Schedule>> entrySet = processRecordMap.entrySet();
+//				for (Map.Entry<Integer, Schedule> entry : entrySet) {
+//					System.out.println(entry.getKey() + "\t" + entry.getValue().getTask().getTaskInfo().taskId);
+//				}
+//			}
+			System.out.println("end time");
+			System.out.println(stats.getEndTime());
+			System.out.println("waiting time");
+			System.out.println(stats.getWaitingTimes());
+			System.out.println("response time");
+			System.out.println(stats.getResponseTimes());
+			System.out.println("turnaround time");
+			System.out.println(stats.getTurnaroundTimes());
 		}
 		if (Boolean.TRUE)
 			return;
@@ -184,7 +189,7 @@ public class MFQScheduler {
 		return Collections.unmodifiableList(processors);
 	}
 	
-	public int execute() {
+	public Statistics execute() {
 		int curTime = 0;
 		
 		while (!sortedFutureTasks.isEmpty() || !inCompleteTasks.isEmpty()) {
@@ -226,9 +231,10 @@ public class MFQScheduler {
 			
 			curTime++;
 		}
-		return curTime;
+		
+		return new Statistics(curTime, completedTasks, processors);
 	}
-
+	
 	/**
 	 * Called when there is some task arrive at the moment.
 	 * Decide which queue to arrive for a task
