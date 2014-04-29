@@ -18,99 +18,30 @@ import com.schedule.Schedule;
 import com.schedule.TaskInfo;
 import com.schedule.util.Log;
 
-public class MFQScheduler {
+public class MFQScheduler implements IScheduler {
 	
 	public static final String TAG = "MFQScheduler";
-
-	private static class TestQueue extends FifoQueue {
-
-		@Override
-		public void enqueue(ArrivedTask task, int time) {
-		}
-	}
 	
 	public static void main(String[] args) throws IOException {
 		Log.setDebugEnabled(TAG, true);
 		Log.setDebugEnabled(Processor.TAG, true);
-//		if (Boolean.FALSE)
-		{
-			MFQScheduler scheduler = new MFQScheduler();
-			scheduler.setProcessorNum(2);
-			scheduler.addFutureTasks(TaskInfo.defaultDataSet());
-//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(0, 0, 1, 1)));
-//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(1, 1, 5, 1)));
-//			scheduler.addFutureTasks(Collections.singleton(new TaskInfo(2, 10, 20, 1)));
-			Statistics stats = scheduler.execute();
-//			for (Processor processor : scheduler.getProcessors()) {
-//				System.out.println(processor);
-//				SortedMap<Integer,Schedule> processRecordMap = processor.getProcessRecordMap();
-//				Set<Entry<Integer,Schedule>> entrySet = processRecordMap.entrySet();
-//				for (Map.Entry<Integer, Schedule> entry : entrySet) {
-//					System.out.println(entry.getKey() + "\t" + entry.getValue().getTask().getTaskInfo().taskId);
-//				}
-//			}
-			System.out.println("end time");
-			System.out.println(stats.getEndTime());
-			System.out.println("waiting time");
-			System.out.println(stats.getWaitingTimes());
-			System.out.println("response time");
-			System.out.println(stats.getResponseTimes());
-			System.out.println("turnaround time");
-			System.out.println(stats.getTurnaroundTimes());
-		}
-		if (Boolean.TRUE)
-			return;
-		TaskInfo taskInfo = TaskInfo.defaultDataSet().iterator().next();
-		System.out.println(TaskInfo.HEADER_STRING);
-		System.out.println(taskInfo);
-
-		int sDuration = taskInfo.duration;
 		
-		Processor processor = new Processor(0);
-		
-		ArrivedTask arrivedTask = new ArrivedTask(taskInfo) {
-			
-			@Override
-			protected void onFinish(Processor processor, int time) {
-				System.out.println("Task finish at " + time);
-			}
-		};
-
-		Schedule schedule = new Schedule(arrivedTask, new TestQueue(), 0, sDuration) {
-			
-			@Override
-			protected void onFinish(Processor processor, int time) {
-				System.out.println("Schedule finish at " + time);
-			}
-		};
-		
-		if (Boolean.FALSE)
-		{
-			for (int i = 0; i < sDuration; i++) {
-				System.out.println("remain " + schedule.getRemainingTime());
-				schedule.process(processor, i);
-			}
-		}
-//		if (Boolean.FALSE)
-		{
-			int startProcessTime = 5;
-			for (int i = 0; i < startProcessTime; i++) {
-				schedule.idle(i);
-			}
-			schedule.process(processor, startProcessTime);
-			System.out.println("response " + schedule.getResponseTime());
-			System.out.println("waited " + schedule.getWaitingTime());
-		}
-		
-		System.out.println(schedule.getProcessRecordMap());
-		System.out.println(arrivedTask.getProcessRecordMap());
+		MFQScheduler scheduler = new MFQScheduler();
+		scheduler.setProcessorNum(2);
+		scheduler.addFutureTasks(TaskInfo.defaultDataSet());
+		Statistics stats = scheduler.execute();
+		System.out.println("end time");
+		System.out.println(stats.getEndTime());
+		System.out.println("waiting time");
+		System.out.println(stats.getWaitingTimes());
+		System.out.println("response time");
+		System.out.println(stats.getResponseTimes());
+		System.out.println("turnaround time");
+		System.out.println(stats.getTurnaroundTimes());
 	}
 	
 	/** The priority range is from {@value #MIN_PRIORITY} to {@value #MAX_PRIORITY} */
-	private static final int MIN_PRIORITY = 1, MAX_PRIORITY = 9;
-	
-	/** When scheudle's idle time greater {@value #MAX_IDLE_TIME}, the schedule aging its task to a higher priority queue. */
-	private static final int MAX_IDLE_TIME = 15;
+	protected static final int MIN_PRIORITY = 1, MAX_PRIORITY = 9;
 	
 	/** Collections of future that not started yet, ordered by {@link TaskInfo#startingTime} */
 	private LinkedList<TaskInfo> sortedFutureTasks = new LinkedList<TaskInfo>();
@@ -125,7 +56,7 @@ public class MFQScheduler {
 	/** Buffer of task schedules. see {@link CommonReadyQueue} */
 	private CommonReadyQueue commonReadyQueue;
 
-	private static class QueueEntry {
+	protected static class QueueEntry {
 		final IQueue queue;
 		final PriorityRange priorityRange;
 		public QueueEntry(IQueue queue, PriorityRange priorityRange) {
@@ -133,7 +64,7 @@ public class MFQScheduler {
 			this.priorityRange = checkNotNull(priorityRange);
 		}
 	}
-	private static class PriorityRange {
+	protected static class PriorityRange {
 		final int min;
 		final int max;
 		public PriorityRange(int min, int max) {
@@ -147,7 +78,7 @@ public class MFQScheduler {
 		setProcessorNum(2);
 	}
 	
-	private ArrayList<QueueEntry> createQueues() {
+	protected ArrayList<QueueEntry> createQueues() {
 		ArrayList<QueueEntry> queues = new ArrayList<QueueEntry>();
 		// hard code create 3 queues
 		// the first queue schedule priority 1-3 tasks, with round robin time slice = 4
@@ -159,7 +90,8 @@ public class MFQScheduler {
 		return queues;
 	}
 
-	public void addFutureTasks(Collection<TaskInfo> allTasks) {
+	@Override
+	public void addFutureTasks(Collection<TaskInfo> allTasks) throws IllegalArgumentException {
 		for (TaskInfo taskInfo : allTasks) {
 			int priority = taskInfo.priority;
 			checkArgument(priority >= MIN_PRIORITY && priority <= MAX_PRIORITY, "priority exceed the range");
@@ -189,6 +121,7 @@ public class MFQScheduler {
 		return Collections.unmodifiableList(processors);
 	}
 	
+	@Override
 	public Statistics execute() {
 		int curTime = 0;
 		
@@ -324,7 +257,7 @@ public class MFQScheduler {
 		
 	}
 	
-	private class FcfsQueue extends FifoQueue {
+	protected class FcfsQueue extends FifoQueue {
 
 		@Override
 		public void enqueue(ArrivedTask task, int time) {
@@ -403,7 +336,7 @@ public class MFQScheduler {
 		
 		@Override
 		protected void onIdle(int time) {
-			if (getWaitingTime() <= MAX_IDLE_TIME || 
+			if (getWaitingTime() <= getTask().getRemainingTime() * 2 || 
 					commonReadyQueue.contains(this)	// no need to aging if this is on common ready queue
 					) {
 				return;
