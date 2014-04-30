@@ -4,6 +4,7 @@ import static com.schedule.util.Preconditions.checkNotNull;
 
 import java.awt.BorderLayout;
 import java.awt.EventQueue;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
@@ -28,16 +30,19 @@ import com.jgoodies.forms.factories.FormFactory;
 import com.jgoodies.forms.layout.ColumnSpec;
 import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
+import com.schedule.Processor;
 import com.schedule.TaskInfo;
 import com.schedule.scheduler.FsfsScheduler;
 import com.schedule.scheduler.IScheduler;
 import com.schedule.scheduler.MFQScheduler;
+import com.schedule.scheduler.SjfScheduler;
 import com.schedule.scheduler.Statistics;
+import com.schedule.util.Log;
 
 public class MainFrame extends JFrame implements ActionListener {
 	private static final long serialVersionUID = 1L;
 	
-	private static final String DEFAULT_DATASET_PATH = "C:\\Users\\woo551992\\Desktop\\OSProject\\group_Dataset\\Comp307_group31.txt";
+	private static final String DEFAULT_DATASET_PATH = "./Comp307_group31.txt";
 	
 	private JFileChooser datasetChooser;
 	private SchedulerCreator curSchedulerCreator;
@@ -55,6 +60,7 @@ public class MainFrame extends JFrame implements ActionListener {
 	private JButton btn_avg_tt;
 	private JButton btn_go;
 	private JButton btn_choose_file;
+	private JButton btn_log;
 
 	/**
 	 * Launch the application.
@@ -105,6 +111,7 @@ public class MainFrame extends JFrame implements ActionListener {
 		btn_go = new JButton("Go");
 		btn_go.addActionListener(this);
 		panel.add(btn_go);
+		panel.getRootPane().setDefaultButton(btn_go);
 		
 		JPanel panel_1 = new JPanel();
 		contentPane.add(panel_1, BorderLayout.CENTER);
@@ -117,6 +124,11 @@ public class MainFrame extends JFrame implements ActionListener {
 		btn_ganttchart.addActionListener(this);
 		btn_ganttchart.setEnabled(false);
 		panel_3.add(btn_ganttchart);
+		
+		btn_log = new JButton("Log");
+		btn_log.setEnabled(false);
+		btn_log.addActionListener(this);
+		panel_3.add(btn_log);
 		
 		JPanel panel_4 = new JPanel();
 		panel_1.add(panel_4, BorderLayout.CENTER);
@@ -228,6 +240,12 @@ public class MainFrame extends JFrame implements ActionListener {
 			}
 			
 			scheduler.addFutureTasks(dataSet);
+			
+			// enable logging
+			Log.setDebugEnabled(MFQScheduler.TAG, true);
+			Log.setDebugEnabled(Processor.TAG, true);
+			Log.startCustomPrint();
+			
 			Statistics stats = scheduler.execute();
 			setResult(stats);
 		} catch (Exception e) {
@@ -249,6 +267,8 @@ public class MainFrame extends JFrame implements ActionListener {
 		btn_avg_wt.setEnabled(false);
 		btn_avg_rt.setEnabled(false);
 		btn_avg_tt.setEnabled(false);
+
+		btn_log.setEnabled(false);
 	}
 	
 	void setResult(Statistics result) {
@@ -263,19 +283,21 @@ public class MainFrame extends JFrame implements ActionListener {
 		btn_avg_wt.setEnabled(true);
 		btn_avg_rt.setEnabled(true);
 		btn_avg_tt.setEnabled(true);
+		
+		btn_log.setEnabled(true);
 	}
 	
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		Object src = e.getSource();
 		if (btn_avg_wt == src) {
-			new CalculationDetailsDialog("Waiting time", curResult.getWaitingTimes())
+			new TextDialog("Waiting time", curResult.getWaitingTimes())
 			.setVisible(true);
 		} else if (btn_avg_rt == src) {
-			new CalculationDetailsDialog("Response time", curResult.getResponseTimes())
+			new TextDialog("Response time", curResult.getResponseTimes())
 			.setVisible(true);
 		} else if (btn_avg_tt == src) {
-			new CalculationDetailsDialog("Turnaround time", curResult.getTurnaroundTimes())
+			new TextDialog("Turnaround time", curResult.getTurnaroundTimes())
 			.setVisible(true);
 		} else if (btn_ganttchart == src) {
 			new GanntChartFrame(curResult, curSchedulerCreator.schedulerName)
@@ -284,6 +306,9 @@ public class MainFrame extends JFrame implements ActionListener {
 			executeScheduler(curSchedulerCreator.createScheduler());
 		} else if (btn_choose_file == src) {
 			promptChooseFile();
+		} else if (btn_log == src) {
+			new TextDialog("Log", Log.endCustomPrint())
+			.setVisible(true);
 		}
 	}
 
@@ -301,6 +326,12 @@ public class MainFrame extends JFrame implements ActionListener {
 				return new FsfsScheduler();
 			}
 		});
+		creators.add(new SchedulerCreator("Shortest job first queue") {
+			@Override
+			protected IScheduler createScheduler() {
+				return new SjfScheduler();
+			}
+		});
 		return creators;
 	}
 	
@@ -314,17 +345,20 @@ public class MainFrame extends JFrame implements ActionListener {
 		protected abstract IScheduler createScheduler();
 	}
 	
-	private static class CalculationDetailsDialog extends JDialog {
+	private static class TextDialog extends JDialog {
 		private static final long serialVersionUID = 1L;
 
-		public CalculationDetailsDialog(String title, Object text) {
+		public TextDialog(String title, Object text) {
+			setAlwaysOnTop(true);
 			setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 			setBounds(100, 100, 450, 750);
 			
 			setTitle(title);
-			JTextArea textArea = new JTextArea();
+			JTextArea textArea;
+			add(new JScrollPane(textArea = new JTextArea()));
+			
+			textArea.setFont(new Font("Courier New", Font.BOLD, 12));
 			textArea.setText(text.toString());
-			add(textArea);
 		}
 		
 	}

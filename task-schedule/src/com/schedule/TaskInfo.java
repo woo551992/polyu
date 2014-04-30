@@ -13,13 +13,13 @@ public class TaskInfo {
 	
 	public static void main(String[] args) throws IOException {
 		System.out.println("TaskID, StartingTime, Duration, Priority");
-		List<TaskInfo> dataSet = decodeDataSet("C:\\Users\\woo551992\\Desktop\\OSProject\\group_Dataset\\Comp307_group31.txt");
+		List<TaskInfo> dataSet = defaultDataSet();
 		for (TaskInfo pendingTask : dataSet) {
 			System.out.println(pendingTask);
 		}
 	}
 	
-	private static final String DEFAULT_PATH = "C:\\Users\\woo551992\\Desktop\\OSProject\\group_Dataset\\Comp307_group31.txt";
+	private static final String DEFAULT_PATH = "./Comp307_group31.txt";
 	public static final String HEADER_STRING = "TaskID, StartingTime, Duration, Priority";
 	
 	public static List<TaskInfo> defaultDataSet() throws IOException {

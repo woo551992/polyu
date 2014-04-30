@@ -3,6 +3,7 @@ package com.schedule.scheduler;
 import java.util.Comparator;
 
 import com.schedule.ArrivedTask;
+import com.schedule.IProcess;
 import com.schedule.Processor;
 import com.schedule.TaskInfo;
 
@@ -88,5 +89,20 @@ public class Comparators {
 			};
 		}
 		
+	}
+	public static class Processes {
+
+		public static Comparator<IProcess> orderByRemainingTime() {
+			return PROCESS_ORDER_BY_REMAINING_TIME;
+		}
+		
+		private static final Comparator<IProcess> PROCESS_ORDER_BY_REMAINING_TIME = new Comparator<IProcess>() {
+			@Override
+			public int compare(IProcess o1, IProcess o2) {
+				if (o1.getRemainingTime() == o2.getRemainingTime())
+					return 0;
+				return o1.getRemainingTime() < o2.getRemainingTime() ? -1 : 1;
+			}
+		};
 	}
 }

@@ -20,7 +20,7 @@ import com.schedule.util.Log;
 
 public class MFQScheduler implements IScheduler {
 	
-	public static final String TAG = "MFQScheduler";
+	public static final String TAG = "Scheduler";
 	
 	public static void main(String[] args) throws IOException {
 		Log.setDebugEnabled(TAG, true);
@@ -309,7 +309,7 @@ public class MFQScheduler implements IScheduler {
 		
 	}
 	
-	private class ScheduleImpl extends Schedule {
+	protected class ScheduleImpl extends Schedule {
 
 		public ScheduleImpl(ArrivedTask task, IQueue queue, int initialTime,
 				int duration) {

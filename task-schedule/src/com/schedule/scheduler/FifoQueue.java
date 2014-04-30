@@ -11,7 +11,7 @@ import com.schedule.Schedule;
  */
 public abstract class FifoQueue implements IQueue {
 	
-	private LinkedList<Schedule> internalQueue = new LinkedList<Schedule>();
+	protected final LinkedList<Schedule> internalQueue = new LinkedList<Schedule>();
 	
 	protected void enqueue(Schedule schedule) {
 		internalQueue.add(schedule);
@@ -51,7 +51,7 @@ public abstract class FifoQueue implements IQueue {
 	public FifoQueue clone() {
 		try {
 			FifoQueue cloned = (FifoQueue) super.clone();
-			cloned.internalQueue = new LinkedList<Schedule>(this.internalQueue);
+			cloned.internalQueue.addAll(this.internalQueue);
 			return cloned;
 		} catch (CloneNotSupportedException e) {
 			throw new AssertionError();
