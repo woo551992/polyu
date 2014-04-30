@@ -68,24 +68,26 @@ public class Statistics {
 			ProcessRange<TaskInfo> range = null;
 			
 			SortedMap<Integer,Schedule> processRecordMap = p.getProcessRecordMap();
-			int start = processRecordMap.firstKey();
-			int end = processRecordMap.lastKey();
+			if (!processRecordMap.isEmpty()) {
+				int start = processRecordMap.firstKey();
+				int end = processRecordMap.lastKey();
 
-			for (int i = start; i <= end; i++) {
-				Schedule schedule = processRecordMap.get(i);
-				boolean isProcessing = schedule != null;
-				
-				if (isProcessing) {
-					if (range == null || 
-							range.tag != schedule.getTask().getTaskInfo()	// different task, split it
-							) {
-						allRanges.add(range = new ProcessRange<TaskInfo>(schedule.getTask().getTaskInfo()));
-						range.start = i;
+				for (int i = start; i <= end; i++) {
+					Schedule schedule = processRecordMap.get(i);
+					boolean isProcessing = schedule != null;
+					
+					if (isProcessing) {
+						if (range == null || 
+								range.tag != schedule.getTask().getTaskInfo()	// different task, split it
+								) {
+							allRanges.add(range = new ProcessRange<TaskInfo>(schedule.getTask().getTaskInfo()));
+							range.start = i;
+						}
+						range.end = i + 1;
+					} else {
+						range = null;
 					}
-					range.end = i + 1;
-				} else {
-					range = null;
-				}
+				}	
 			}
 			
 			map.put(p, Collections.unmodifiableList(allRanges));
@@ -106,21 +108,20 @@ public class Statistics {
 			// transform processRecordMap [0=[P0],1=[P0],2=null,3=[P1]] to [0-2,3-4]
 			SortedMap<Integer,Processor> processRecordMap = task.getProcessRecordMap();
 			// simply iterate it by time sequentially, not care performance
-			int start = processRecordMap.firstKey();
-			int end = processRecordMap.lastKey();
-			
-			for (int i = start; i <= end; i++) {
-				boolean isProcessing = processRecordMap.get(i) != null;
+			if (!processRecordMap.isEmpty()) {
+				int start = processRecordMap.firstKey();
+				int end = processRecordMap.lastKey();
 				
-				if (isProcessing) {
-					if (range == null) {
-						range = new ProcessRange<Void>(null);
-						range.start = i;
-					}
-					range.end = i + 1;
-				} else {
-					if (range != null) {
-						allRanges.add(range);
+				for (int i = start; i <= end; i++) {
+					boolean isProcessing = processRecordMap.get(i) != null;
+					
+					if (isProcessing) {
+						if (range == null) {
+							allRanges.add(range = new ProcessRange<Void>(null));
+							range.start = i;
+						}
+						range.end = i + 1;
+					} else {
 						range = null;
 					}
 				}

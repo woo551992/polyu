@@ -26,6 +26,8 @@ public class Processor {
 	private final int id;
 	private Schedule processingSchedule;
 	private TreeMap<Integer, Schedule> processRecordMap = new TreeMap<Integer, Schedule>();
+	private int startTime = -1;
+	private int endTime = -1;
 	private int processTime = 0;
 
 	public Processor(int id) {
@@ -65,6 +67,9 @@ public class Processor {
 		Log.d(TAG, this + " - task=" + schedule.getTask().getTaskInfo().taskId + " remain=" + schedule.getRemainingTime() + " timeuse=" + (processTime + 1));
 		schedule.process(this, time);
 		// record
+		if (startTime == -1)
+			startTime = time;
+		endTime = time + 1;
 		processTime++;
 		processRecordMap.put(time, schedule);
 	}
@@ -79,6 +84,14 @@ public class Processor {
 	
 	public int getThroughput() {
 		return processTime;
+	}
+	
+	public int getStartTime() {
+		return startTime;
+	}
+	
+	public int getEndTime() {
+		return endTime;
 	}
 	
 	/** Returns process record that map key(time) to value(schedule) */
