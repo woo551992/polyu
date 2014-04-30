@@ -4,6 +4,8 @@ import static com.schedule.util.Preconditions.*;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,11 +41,15 @@ public class TaskFactory {
 	
 	/** Create a standard task based dataset. */
 	public static TaskSeriesCollection createSchedulingDataset(Statistics stats) {
+		return createSchedulingDataset(stats, null);
+	}
+	
+	public static TaskSeriesCollection createSchedulingDataset(Statistics stats, Comparator<? super ArrivedTask> taskSort) {
 		TaskSeriesCollection dataset = new TaskSeriesCollection();
 		
 		// init total range
 		ArrayList<Task> totalRanges = new ArrayList<Task>();
-		for (ArrivedTask taskStats : stats.getTasks()) {
+		for (ArrivedTask taskStats : sortedTasks(stats.getTasks(), taskSort)) {
 			int start = taskStats.getStartingTime();
 			int end = taskStats.getStartingTime() + taskStats.getWaitingTime() + taskStats.getDuration();
 			totalRanges.add(new Task(taskStats.getTaskInfo().getName(), new SimpleTimePeriod(start, end)));
@@ -63,7 +69,16 @@ public class TaskFactory {
 			dataset.add(factory.transferTasksTo(new TaskSeries(processor.toString())));
 		}
 		
-		return dataset;
+		return dataset;		
+	}
+	
+	private static ArrayList<ArrivedTask> sortedTasks(Collection<ArrivedTask> tasks, Comparator<? super ArrivedTask> sort) {
+		ArrayList<ArrivedTask> sorted = new ArrayList<ArrivedTask>();
+		sorted.addAll(tasks);
+		if (sort != null) {
+			Collections.sort(sorted, sort);
+		}
+		return sorted;
 	}
 
 	private LinkedHashMap<String, Task> branchesMap = new LinkedHashMap<String, Task>();

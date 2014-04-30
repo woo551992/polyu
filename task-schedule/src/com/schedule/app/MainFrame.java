@@ -47,6 +47,7 @@ public class MainFrame extends JFrame implements ActionListener {
 	private JFileChooser datasetChooser;
 	private SchedulerCreator curSchedulerCreator;
 	private Statistics curResult;
+	private String curLog;
 
 	private JPanel contentPane;
 	private JTextField txt_path;
@@ -245,6 +246,7 @@ public class MainFrame extends JFrame implements ActionListener {
 			Log.setDebugEnabled(MFQScheduler.TAG, true);
 			Log.setDebugEnabled(Processor.TAG, true);
 			Log.startCustomPrint();
+			curLog = null;
 			
 			Statistics stats = scheduler.execute();
 			setResult(stats);
@@ -307,7 +309,8 @@ public class MainFrame extends JFrame implements ActionListener {
 		} else if (btn_choose_file == src) {
 			promptChooseFile();
 		} else if (btn_log == src) {
-			new TextDialog("Log", Log.endCustomPrint())
+			String log = curLog != null ? curLog : (curLog = Log.endCustomPrint());
+			new TextDialog("Log", log)
 			.setVisible(true);
 		}
 	}

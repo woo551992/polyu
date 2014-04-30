@@ -163,6 +163,7 @@ public class Statistics {
 		return endTime;
 	}
 	
+	/** Returns all tasks with process record, sorted by id. */
 	public SortedSet<ArrivedTask> getTasks() {
 		return sortedTasks;
 	}
