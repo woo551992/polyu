@@ -26,6 +26,7 @@ public class Processor {
 	private final int id;
 	private Schedule processingSchedule;
 	private TreeMap<Integer, Schedule> processRecordMap = new TreeMap<Integer, Schedule>();
+	private int processTime = 0;
 
 	public Processor(int id) {
 		this.id = id;
@@ -61,9 +62,10 @@ public class Processor {
 		checkArgument(time >= 0);
 		checkArgument(!processRecordMap.containsKey(time), "duplicate running time");
 
-		Log.d(TAG, this + " - task=" + schedule.getTask().getTaskInfo().taskId + " remain=" + schedule.getRemainingTime());
+		Log.d(TAG, this + " - task=" + schedule.getTask().getTaskInfo().taskId + " remain=" + schedule.getRemainingTime() + " timeuse=" + (processTime + 1));
 		schedule.process(this, time);
 		// record
+		processTime++;
 		processRecordMap.put(time, schedule);
 	}
 	
@@ -73,6 +75,10 @@ public class Processor {
 	
 	public boolean isBusy() {
 		return processingSchedule != null && !processingSchedule.isFinish();
+	}
+	
+	public int getThroughput() {
+		return processTime;
 	}
 	
 	/** Returns process record that map key(time) to value(schedule) */
