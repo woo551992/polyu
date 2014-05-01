@@ -81,12 +81,14 @@ public class MFQScheduler implements IScheduler {
 	protected ArrayList<QueueEntry> createQueues() {
 		ArrayList<QueueEntry> queues = new ArrayList<QueueEntry>();
 		// hard code create 3 queues
-		// the first queue schedule priority 1-3 tasks, with round robin time slice = 4
-		queues.add(new QueueEntry(new RoundRobinQueue(4), new PriorityRange(MIN_PRIORITY, 3)));
-		// the second queue schedule priority 4-6 tasks, with round robin time slice = 8
-		queues.add(new QueueEntry(new RoundRobinQueue(8), new PriorityRange(4, 6)));
-		// the last queue schedule priority 7-9 tasks, by FCFS
-		queues.add(new QueueEntry(new FcfsQueue(), new PriorityRange(7, MAX_PRIORITY)));
+		// the first queue schedule priority 1-2 tasks, with round robin time slice = 4
+		queues.add(new QueueEntry(new RoundRobinQueue(4), new PriorityRange(MIN_PRIORITY, 2)));
+		// the second queue schedule priority 3-5 tasks, with round robin time slice = 8
+		queues.add(new QueueEntry(new RoundRobinQueue(8), new PriorityRange(3, 5)));
+		// the third queue schedule priority 6-7 tasks, with round robin time slice = 16
+		queues.add(new QueueEntry(new RoundRobinQueue(16), new PriorityRange(6, 7)));
+		// the last queue schedule priority 8-9 tasks, by FCFS
+		queues.add(new QueueEntry(new FcfsQueue(), new PriorityRange(8, MAX_PRIORITY)));
 		return queues;
 	}
 
